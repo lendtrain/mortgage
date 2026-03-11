@@ -66,7 +66,7 @@ The plugin connects to a mortgage pricing MCP server that exposes three tools:
 | `calculate_all_pricing` | Price all eligible products simultaneously and compare |
 | `get_effective_date` | Check when the current rate sheet was published |
 
-See [CONNECTORS.md](CONNECTORS.md) for full API schemas, request/response fields, and integration details.
+See [CONNECTORS.md](plugins/mortgage/CONNECTORS.md) for full API schemas, request/response fields, and integration details.
 
 ## Compliance
 
