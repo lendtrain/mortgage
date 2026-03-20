@@ -1,0 +1,52 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/guard-sensitive-data.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "mcp__mortgage-pricer__calculate_pricing|mcp__mortgage-pricer__calculate_all_pricing",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Before this pricer tool call proceeds, validate the request against these mandatory business rules. If ANY check fails, BLOCK the tool call and inform the borrower.\n\n1. STATE LICENSING: The state field MUST be one of: AL, FL, GA, KY, NC, OR, SC, TN, TX, UT. If not, BLOCK and say: 'LendTrain is not currently licensed to originate loans in [state].'\n\n2. VA FUNDING FEE TYPE: If productType is 'va', vaFundingFeeType MUST be present and set to 'firstTime', 'subsequent', or 'exempt'. If missing, BLOCK and ask the borrower about first-time use and disability status.\n\n3. PROPERTY VALUE (RATE-TERM): If loanPurpose is 'rateTermRefi' and propertyValue < loanAmount, BLOCK unless productType is 'va' (VA IRRRL allows 100% LTV).\n\n4. LTV LIMITS: Calculate ltv = loanAmount/propertyValue*100. Conventional max 97%, FHA rate-term max 96.5%, FHA cash-out max 80%, VA rate-term max 100%, VA cash-out max 80%. If exceeded, BLOCK and inform borrower of the limit.\n\n5. FHA ESCROW: If productType is 'fha', escrowWaiver MUST be false. FHA requires escrow.\n\n6. REQUIRED FIELDS: loanAmount > 0, propertyValue > 0, creditScore 300-850, loanPurpose is 'rateTermRefi' or 'cashOutRefi', propertyType/occupancy/state/loanTerm are valid enum values.",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__mortgage-pricer__calculate_pricing|mcp__mortgage-pricer__calculate_all_pricing",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "The pricer response has been received. Before processing it, enforce these rules:\n\n1. NEVER DISPLAY basePrice: If any RatePricing entry contains a basePrice field, IGNORE it completely. Do not mention it, display it, or include it in any output. This is internal wholesale pricing data.\n\n2. PAYMENT FIELD SELECTION: For FHA loans, you MUST use totalMonthlyPayment (P&I + MIP) for all savings calculations and borrower-facing payment displays. For conventional loans with LTV > 80%, you MUST use totalMonthlyPayment (P&I + MI). For VA loans, use monthlyPayment only (no MI/MIP). For conventional LTV <= 80%, use monthlyPayment only.\n\n3. CONVENTIONAL MI VALIDATION: If the product is conventional and LTV > 80%, the response should contain a conventionalMI object with annualRate, monthlyAmount, and coveragePercent. If present, you MUST mention: (a) the monthly MI amount, (b) that MI drops off when LTV reaches 80%, (c) that MI is NOT financed into the loan.\n\n4. FHA MIP IS PERMANENT: If the product is FHA, state that MIP is permanent for the life of the loan. Do NOT imply it drops off.\n\n5. VA HAS NO MI: VA loans have no monthly mortgage insurance. Do not reference monthlyMip or monthlyMI for VA products.",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Before finalizing your response, check for these compliance violations:\n\n1. PROHIBITED PHRASES: Your response MUST NOT contain: 'you qualify for', 'you are approved', 'guaranteed rate', 'locked rate', 'you will receive', 'committed to lend', 'pre-approved'. Replace with estimate language ('based on your information, you may be eligible for', 'your estimated rate is').\n\n2. NMLS DISCLOSURE: If this response presents pricing or rate data, verify it includes 'NMLS# 1844873' somewhere.\n\n3. ESTIMATE DISCLAIMER: If presenting rates, include: 'This is an estimate. Rates are not locked and may change.'\n\n4. MI DISCLOSURE CHECK: If you presented conventional pricing with LTV > 80%, verify you mentioned that MI drops off at 80% LTV. If you presented FHA pricing, verify you mentioned MIP is permanent.\n\n5. PAYMENT FIELD CHECK: If you showed monthly payments, verify you used totalMonthlyPayment for FHA and conventional LTV > 80%, and monthlyPayment for VA and conventional LTV <= 80%.",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

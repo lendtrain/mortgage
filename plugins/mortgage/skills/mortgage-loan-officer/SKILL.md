@@ -181,15 +181,31 @@ When a streamline refinance is detected, inform the borrower: "Based on your cur
 
 **Default mapping**: If loan type is unknown or not detected as FHA/VA, default to `productType: 'conventional'`.
 
-### VA Funding Fee Exemption Collection
+### VA Funding Fee Type Collection
 
-When VA loan type is detected and the borrower is pursuing any type of VA refinance (IRRRL or cash-out), collect the funding fee exemption status:
+When VA loan type is detected and the borrower is pursuing any type of VA refinance (IRRRL or cash-out), collect the funding fee type by asking two questions:
 
-> "Do you have a VA disability rating of 10% or higher? Veterans with a service-connected disability of 10% or higher are exempt from the VA funding fee, which saves 0.5% (IRRRL) or 3.3% (cash-out) of your loan amount -- potentially thousands of dollars on your refinance."
+**Question 1 — First-time vs. subsequent use:**
 
-- If yes: set `vaFundingFeeExempt: true`
-- If no or unsure: set `vaFundingFeeExempt: false`
-- This field is only relevant for VA loans. Do not ask for conventional or FHA borrowers.
+> "Is this your first time using your VA loan benefit, or have you used it before? First-time use has a lower funding fee (2.15% for purchase/cash-out) compared to subsequent use (3.3%). For IRRRL refinances, the fee is 0.5% regardless."
+
+- First time: `vaFundingFeeType: 'firstTime'`
+- Previously used: `vaFundingFeeType: 'subsequent'`
+
+**Question 2 — Disability exemption:**
+
+> "Do you have a VA disability rating of 10% or higher? Veterans with a service-connected disability of 10% or higher are exempt from the VA funding fee entirely -- potentially saving thousands of dollars on your refinance."
+
+- If yes: override to `vaFundingFeeType: 'exempt'` (exemption takes precedence over first-time/subsequent)
+- If no or unsure: keep the value from Question 1
+
+**Funding fee rates by type:**
+- IRRRL (rateTermRefi): 0.5% unless exempt
+- First-time use (purchase/cashOutRefi): 2.15%
+- Subsequent use (purchase/cashOutRefi): 3.3%
+- Exempt: 0% for all loan purposes
+
+This field is only relevant for VA loans. Do not ask for conventional or FHA borrowers.
 
 ### Seasoning Requirements
 
@@ -237,6 +253,8 @@ Present savings in clear dollar terms: "Your estimated monthly payment would dro
 **Product-Aware Payment Fields:**
 
 For FHA loans, the borrower's true monthly obligation is `totalMonthlyPayment` (P&I + monthly MIP), not just `monthlyPayment` (P&I only). Always use `totalMonthlyPayment` when calculating FHA savings and presenting monthly costs to the borrower.
+
+For conventional loans with LTV > 80%, the pricer returns `conventionalMI` with `annualRate`, `monthlyAmount`, and `coveragePercent`. Each rate option includes `monthlyMI` and `totalMonthlyPayment` (P&I + MI). Use `totalMonthlyPayment` for savings calculations. Note to the borrower that MI drops off when LTV reaches 80%. For conventional loans with LTV <= 80%, no MI applies -- use `monthlyPayment` only.
 
 For VA loans, use `monthlyPayment` (P&I only). VA loans have no monthly mortgage insurance -- no MIP, no PMI.
 
@@ -357,7 +375,7 @@ This table maps data points from their source through to both the pricing engine
 | Email | Application portal | -- | borrower.emailAddressText |
 | Phone | Application portal | -- | borrower.mobilePhone |
 | Product type | Detected from loan type | productType | -- |
-| VA funding fee exemption | Interview (VA only) | vaFundingFeeExempt | -- |
+| VA funding fee type | Interview (VA only) | vaFundingFeeType | -- |
 
 ### Pricer Request Construction
 

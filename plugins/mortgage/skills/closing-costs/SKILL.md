@@ -14,7 +14,7 @@ This skill provides itemized estimated closing costs for refinance transactions.
 1. Property state
 2. Loan amount
 3. Product type (Conventional, FHA, or VA)
-4. For VA loans only: whether the borrower has a service-connected disability that qualifies for a VA funding fee exemption
+4. For VA loans only: the `vaFundingFeeType` (`'firstTime'`, `'subsequent'`, or `'exempt'`)
 5. For FHA Streamline: borrower's mortgage statement (for UPB, current rate, origination date, monthly MIP)
 6. For VA IRRRL: borrower's mortgage statement (for UPB, current rate, origination date/first payment date)
 
@@ -56,7 +56,9 @@ This skill provides itemized estimated closing costs for refinance transactions.
 
 ### Conventional
 
-No additional product-specific fees.
+No additional product-specific closing cost fees.
+
+**Note on mortgage insurance**: For conventional loans with LTV > 80%, the pricer returns `conventionalMI` with a monthly premium (`monthlyMI` on each rate option). This is an ongoing monthly cost, NOT a closing cost. Do NOT include conventional MI in the closing cost total. Present it separately as part of the monthly payment breakdown: "Monthly MI: $XXX/mo (drops off when LTV reaches 80%)".
 
 ### FHA -- Upfront Mortgage Insurance Premium (UFMIP)
 
@@ -137,14 +139,16 @@ Most FHA Streamline borrowers prefer $0 or minimal cash to close. When presentin
 
 ### VA -- Funding Fee
 
-Check the exemption status from the scenario context (collected during the borrower interview in the refi-quote workflow, Section 1.3.3.1). The `vaFundingFeeExempt` field is set during Phase 1 data collection — do not ask the borrower again.
+Check the `vaFundingFeeType` from the scenario context (collected during the borrower interview in the refi-quote workflow, Section 1.3.3.1). This field is set during Phase 1 data collection — do not ask the borrower again.
 
-- If **yes**: Funding fee = $0 (exempt)
-- If **no** and **VA rate/term refinance (IRRRL)**: Funding fee = 0.5% of loan amount (financed)
-- If **no** and **VA cash-out refinance**: Funding fee = 3.3% of loan amount (financed, subsequent use rate)
+**Funding fee rates:**
+- If `vaFundingFeeType: 'exempt'`: Funding fee = $0
+- If **VA IRRRL (rateTermRefi)**: Funding fee = 0.5% of loan amount (financed), unless exempt
+- If **VA cash-out** and `vaFundingFeeType: 'firstTime'`: Funding fee = 2.15% of loan amount (financed)
+- If **VA cash-out** and `vaFundingFeeType: 'subsequent'`: Funding fee = 3.3% of loan amount (financed)
 - Present as: "VA Funding Fee: $X (typically financed into the loan -- not paid out of pocket)"
 
-**Integration note**: The pricer returns `financedFees.vaFundingFee` for VA loans (non-exempt). Use this exact amount rather than recalculating the percentage. The `vaFundingFeeExempt` field is now a pricer input — the closing costs skill should read the exemption status from the scenario context rather than asking the borrower separately.
+**Integration note**: The pricer returns `financedFees.vaFundingFee` for all VA loans — use this exact amount rather than recalculating the percentage. When exempt, the pricer returns `vaFundingFee: 0` and `totalFinanced: 0`. The `vaFundingFeeType` field is a pricer input — the closing costs skill should read it from the scenario context rather than asking the borrower separately.
 
 **VA IRRRL Closing Costs -- CAN Be Financed**:
 
@@ -497,7 +501,7 @@ Follow these steps in order when calculating closing costs:
 
 2. **Determine product type.** Identify whether the loan is Conventional, FHA, FHA Streamline, VA IRRRL, or VA Cash-Out. If the borrower has an existing FHA loan and wants a rate/term refinance, the product is FHA Streamline. If the borrower has an existing VA loan and wants a rate/term refinance, the product is VA IRRRL.
 
-3. **If VA, ask about disability exemption.** Ask: "Do you have a service-connected disability that qualifies you for a VA funding fee exemption?" Wait for the borrower's answer before proceeding.
+3. **If VA, confirm funding fee type.** Read `vaFundingFeeType` from the scenario context (set during Phase 1 data collection). If not already set, ask the borrower about first-time vs. subsequent use and disability exemption (see mortgage-loan-officer skill, Section 3).
 
 4. **Look up the state fee schedule.** Locate the correct state section above for the borrower's property state.
 
@@ -513,9 +517,10 @@ Follow these steps in order when calculating closing costs:
    - **Conventional**: No additional fees.
    - **FHA (standard)**: 1.75% of loan amount (UFMIP, financed). Use `financedFees.ufmip` from the pricer response (1.75% of loan amount, financed).
    - **FHA Streamline**: Calculate UFMIP with refund netting (see "FHA Streamline -- UFMIP with Refund Netting" section above). Calculate max loan amount per the HUD 4000.1 worksheet formula. Use `financedFees.ufmip` from the pricer response. Calculate UFMIP refund netting per the existing formula. The pricer's `financedFees.totalLoanAmount` reflects the total after financed fees.
-   - **VA IRRRL** without disability exemption: 0.5% of loan amount (financed). Closing costs may be financed into the loan. Use `financedFees.vaFundingFee` from the pricer response. If `vaFundingFeeExempt` was sent as `true`, the pricer returns `totalFinanced: 0`.
-   - **VA Cash-Out** without disability exemption: 3.3% of loan amount (financed). Use `financedFees.vaFundingFee` from the pricer response. If `vaFundingFeeExempt` was sent as `true`, the pricer returns `totalFinanced: 0`.
-   - **VA with disability exemption**: $0 funding fee regardless of refinance type.
+   - **VA IRRRL** (non-exempt): 0.5% of loan amount (financed). Closing costs may be financed into the loan. Use `financedFees.vaFundingFee` from the pricer response.
+   - **VA Cash-Out** (firstTime): 2.15% of loan amount (financed). Use `financedFees.vaFundingFee` from the pricer response.
+   - **VA Cash-Out** (subsequent): 3.3% of loan amount (financed). Use `financedFees.vaFundingFee` from the pricer response.
+   - **VA exempt** (`vaFundingFeeType: 'exempt'`): $0 funding fee regardless of refinance type. The pricer returns `vaFundingFee: 0` and `totalFinanced: 0`.
 
 10. **Sum all sections for total estimated closing costs.** Add Section A + Section B + Section C + Section E subtotals. For FHA Streamline: this is the amount that must be covered by lender credit or paid out of pocket (cannot be financed). For VA IRRRL: this amount can be financed into the new loan if the borrower prefers. Do not include financed fees (UFMIP, VA Funding Fee) in the out-of-pocket total.
 

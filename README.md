@@ -68,16 +68,30 @@ The plugin connects to a mortgage pricing MCP server that exposes three tools:
 
 See [CONNECTORS.md](plugins/mortgage/CONNECTORS.md) for full API schemas, request/response fields, and integration details.
 
+## Compliance Hooks
+
+The plugin includes 4 compliance hooks that enforce business rules programmatically:
+
+| Hook | Type | Enforces |
+|------|------|----------|
+| `guard-sensitive-data.sh` | Bash (UserPromptSubmit) | Blocks SSN/DOB patterns in user input |
+| `validate-pricer-request.md` | Prompt (PreToolUse) | State licensing, LTV limits, VA funding fee type, required fields |
+| `hooks.json` inline prompt | Prompt (PostToolUse) | basePrice suppression, payment field correctness, MI disclosures |
+| `enforce-disclosures.md` | Prompt (Stop) | Rate disclaimers, NMLS, MI permanence, prohibited phrases |
+
 ## Compliance
 
 This plugin is designed for TRID, RESPA, TILA, and ECOA compliance:
 
-- Never collects SSN, DOB, bank account numbers, or passwords
-- Uses "estimate" and "quote" — never "pre-approval" or "guaranteed"
+- Never collects SSN, DOB, bank account numbers, or passwords (enforced by bash hook)
+- Uses "estimate" and "quote" — never "pre-approval" or "guaranteed" (enforced by Stop hook)
 - Presents APR alongside note rate on all quotes
 - Includes required settlement services disclosure
 - Directs borrowers to secure application portal for sensitive data
 - Provides Equal Housing Opportunity notice
+- Conventional MI (LTV > 80%) disclosed as temporary, dropping at 80% LTV
+- FHA MIP disclosed as permanent for the life of the loan
+- VA funding fee tiers: 0.5% IRRRL, 2.15% first-time, 3.3% subsequent, 0% exempt
 
 ## Contact
 
