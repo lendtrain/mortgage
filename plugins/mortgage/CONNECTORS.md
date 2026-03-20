@@ -35,7 +35,8 @@ Connector placeholders follow the `~~name` convention. When the plugin reference
 | `occupancy` | `'primary' \| 'secondHome' \| 'investment'` | Yes | Occupancy type |
 | `propertyType` | `'singleFamily' \| 'condo' \| 'townhouse' \| 'multiUnit' \| 'manufactured'` | Yes | Property type |
 | `productType` | `'conventional' \| 'fha' \| 'va'` | No (default: conventional) | Loan program type |
-| `vaFundingFeeExempt` | boolean | No | VA only. True if veteran has 10%+ service-connected disability |
+| `vaFundingFeeType` | `'firstTime' \| 'subsequent' \| 'exempt'` | No (default: firstTime) | VA only. Controls funding fee rate: `firstTime` = 2.15% (purchase/cash-out), `subsequent` = 3.3%, `exempt` = 0%. For IRRRL, fee is always 0.5% unless exempt. |
+| `vaFundingFeeExempt` | boolean | No | **Deprecated.** Use `vaFundingFeeType: 'exempt'` instead. Still honored for backward compatibility. |
 | `condoType` | `'attached' \| 'highRise' \| 'detached'` | No | Condo only |
 | `employmentType` | `'employed' \| 'selfEmployed' \| 'retired' \| 'other'` | No | Employment status |
 | `dti` | number | No | Debt-to-income ratio 0-100 |
@@ -55,6 +56,7 @@ Connector placeholders follow the `~~name` convention. When the plugin reference
 | `product` | object | Selected product: `code`, `name`, `term`, `productType` |
 | `adjustments` | object | Adjustment breakdown with `creditScoreLtv`, `stateSrp`, `stateEscrow`, `features`, `incentives`, `brokerComp`, `compensationCapped`, `total`, `itemized[]` |
 | `financedFees` | FinancedFees? | **FHA/VA only.** Financed fee breakdown (see below) |
+| `conventionalMI` | ConventionalMI? | **Conventional only, LTV > 80%.** Mortgage insurance details (see below) |
 | `pricing` | RatePricing[] | Array of rate options (see below) |
 | `effectiveDate` | string | Rate sheet date |
 | `effectiveTime` | string | Rate sheet time |
@@ -67,12 +69,24 @@ Present when `productType` is `'fha'` or `'va'`:
 | Field | Type | Present When | Description |
 |-------|------|-------------|-------------|
 | `ufmip` | number | FHA only | UFMIP amount (1.75% of base loan) |
-| `vaFundingFee` | number | VA non-exempt only | Funding fee dollar amount |
-| `fundingFeePercent` | number | VA non-exempt only | Fee percentage applied (0.5% IRRRL, 3.3% cash-out) |
+| `vaFundingFee` | number | VA only | Funding fee dollar amount. Returns `0` when exempt. |
+| `fundingFeePercent` | number | VA only | Fee percentage applied (0.5% IRRRL, 2.15% first-time, 3.3% subsequent, 0% exempt). Returns `0` when exempt. |
 | `totalFinanced` | number | Always | Total dollar amount financed (added to base loan) |
 | `totalLoanAmount` | number | Always | Base loan amount + totalFinanced |
 | `annualMip` | number | FHA only | Annual MIP amount (0.55% of base loan) |
 | `monthlyMip` | number | FHA only | Monthly MIP payment (annualMip / 12) |
+
+### ConventionalMI Object
+
+Present when `productType` is `'conventional'` AND LTV > 80%:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `annualRate` | number | Annual MI rate as a percentage (e.g., 0.29 = 0.29%) |
+| `monthlyAmount` | number | Monthly MI premium in dollars |
+| `coveragePercent` | number | Required coverage percentage (12%, 25%, 30%, or 35% depending on LTV) |
+
+**Key difference from FHA/VA**: Conventional MI is NOT financed into the loan. It does not appear in `financedFees`. It is a monthly cost that drops off when LTV reaches 80% (unlike FHA MIP which is permanent).
 
 ### RatePricing Fields
 
@@ -83,10 +97,11 @@ Present when `productType` is `'fha'` or `'va'`:
 | `points` | number | Points cost (negative = lender credit) |
 | `dollarAmount` | number | Dollar cost (negative = credit to borrower) |
 | `monthlyPayment` | number | P&I payment. For FHA/VA, based on `totalLoanAmount` |
-| `apr` | number | Annual Percentage Rate |
+| `apr` | number | Annual Percentage Rate. For conventional with MI, APR includes MI cost per TILA/Reg Z. |
 | `isPar` | boolean? | Whether this is the par rate option |
 | `monthlyMip` | number? | **FHA only.** Monthly MIP amount |
-| `totalMonthlyPayment` | number? | **FHA only.** `monthlyPayment` + `monthlyMip` |
+| `monthlyMI` | number? | **Conventional only, LTV > 80%.** Monthly mortgage insurance premium (equals `conventionalMI.monthlyAmount`) |
+| `totalMonthlyPayment` | number? | **FHA or Conventional (LTV > 80%).** `monthlyPayment` + `monthlyMip` (FHA) or `monthlyPayment` + `monthlyMI` (conventional). The borrower's true monthly obligation. |
 
 **IMPORTANT**: `basePrice` is intentionally excluded. Never display or reference it.
 

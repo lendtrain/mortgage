@@ -191,15 +191,27 @@ If the detected loan type is FHA, do NOT ask this question. FHA loans require an
 For all other loan types, ask:
 > "Would you like your property taxes and insurance included in your monthly mortgage payment (known as escrow), or would you prefer to pay those separately? Including them means one predictable payment each month."
 
-#### 1.3.3.1 VA Funding Fee Exemption
+#### 1.3.3.1 VA Funding Fee Type Collection
 
-When the detected loan type is VA AND the borrower's goal maps to `rateTermRefi` OR `cashOutRefi`, ask:
+When the detected loan type is VA AND the borrower's goal maps to `rateTermRefi` OR `cashOutRefi`, ask two questions to determine `vaFundingFeeType`:
 
-> "Do you have a VA disability rating of 10% or higher? Veterans with a service-connected disability of 10% or higher are exempt from the VA funding fee, which can save thousands of dollars on your refinance."
+**Question 1 — First-time vs. subsequent use:**
 
-Store the answer as `vaFundingFeeExempt: boolean`. If yes: `true`. If no or unsure: `false`.
+> "Is this your first time using your VA loan benefit, or have you used it before? First-time use has a lower funding fee for cash-out refinances (2.15%) compared to subsequent use (3.3%). For IRRRL refinances, the fee is 0.5% regardless."
 
-This question is ONLY asked when current loan type is VA. Do not ask for conventional or FHA borrowers.
+- First time: tentatively set `vaFundingFeeType: 'firstTime'`
+- Previously used: tentatively set `vaFundingFeeType: 'subsequent'`
+
+**Question 2 — Disability exemption:**
+
+> "Do you have a VA disability rating of 10% or higher? Veterans with a service-connected disability of 10% or higher are exempt from the VA funding fee entirely -- potentially saving thousands of dollars on your refinance."
+
+- If yes: override to `vaFundingFeeType: 'exempt'` (exemption takes precedence)
+- If no or unsure: keep the value from Question 1
+
+Store the result as `vaFundingFeeType: 'firstTime' | 'subsequent' | 'exempt'`.
+
+These questions are ONLY asked when current loan type is VA. Do not ask for conventional or FHA borrowers.
 
 ### 1.4 Prohibited Data Collection
 
@@ -257,7 +269,7 @@ This table consolidates all data points, their sources, and their downstream fie
 | Subordinate financing | Interview | Recommended | -- | -- |
 | Escrow preference | Interview | No | -- | -- |
 | Product type | Derived from loan type | Yes | productType | -- |
-| VA funding fee exemption | Interview (VA only) | If VA | vaFundingFeeExempt | -- |
+| VA funding fee type | Interview (VA only) | If VA | vaFundingFeeType | -- |
 
 ### 1.7 Field Validation Before Phase 2
 
@@ -275,7 +287,7 @@ Before transitioning to Phase 2 (Pricing), validate that all required fields are
 | loanTerm | One of: 30, 25, 20, 15, 10 (years) |
 | lockPeriod | Positive integer; defaults to 30 if not specified |
 | productType | One of: conventional, fha, va. Derived from detected loan type -- not directly asked. |
-| vaFundingFeeExempt | Boolean. Required when productType is 'va'. |
+| vaFundingFeeType | One of: firstTime, subsequent, exempt. Required when productType is 'va'. |
 
 **Recommended but not blocking:**
 
@@ -355,7 +367,7 @@ Include these fields in the `LoanScenario` when the data is available. Omit them
 | `isHighBalance` | Derived from loan amount and county limits | Set to `true` if the loan amount exceeds the conforming loan limit for the property's county but is within the high-balance limit. If unknown or not applicable, omit this field. |
 | `ausPreference` | Not collected in Phase 1 | Omit. The pricer will use its default AUS selection. |
 | `productType` | Loan program type | The `productType` field is NOT required when using `calculate_all_pricing` -- omit it. The server evaluates all three product types (conventional, FHA, VA) automatically. Only include `productType` if calling `calculate_pricing` as a fallback (see Section 2.3). When falling back, set based on detected loan type: current FHA loan --> `'fha'`, current VA loan --> `'va'`, all others --> `'conventional'`. If loan type is unknown or not detected, default to `'conventional'`. |
-| `vaFundingFeeExempt` | VA exemption question (Section 1.3.3.1) | Only include when `productType` is `'va'`. Set to `true` if borrower has 10%+ disability rating. Set to `false` otherwise. Omit entirely for non-VA loans. |
+| `vaFundingFeeType` | VA funding fee type (Section 1.3.3.1) | Only include when `productType` is `'va'`. Set to `'firstTime'` if first VA benefit use, `'subsequent'` if previously used, `'exempt'` if 10%+ disability rating. Omit entirely for non-VA loans. |
 | `units` | Derived from property type | Only include when `propertyType` is `'multiUnit'`. Set to `2`, `3`, or `4` based on the borrower's stated unit count. If multi-unit but unit count not specified, default to `2`. |
 
 #### 2.2.3 LTV Calculation (Informational)
@@ -465,6 +477,19 @@ Count the eligible products (those that are a `PricingResult`, not an ineligibil
 | `effectiveTime` | string | Rate sheet effective time. |
 | `calculatedAt` | string | Timestamp of when pricing was calculated. Display to borrower as the quote generation time. |
 | `financedFees` | FinancedFees (optional) | Present for FHA and VA loans. Contains financed fee breakdown -- see FinancedFees Object below. |
+| `conventionalMI` | ConventionalMI (optional) | Present for conventional loans with LTV > 80%. Contains mortgage insurance details -- see ConventionalMI Object below. |
+
+##### ConventionalMI Object
+
+Present when `productType` is `'conventional'` AND LTV > 80%:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `annualRate` | number | Annual MI rate as a percentage (e.g., 0.29 = 0.29%) |
+| `monthlyAmount` | number | Monthly MI premium in dollars |
+| `coveragePercent` | number | Required coverage percentage (12%, 25%, 30%, or 35% depending on LTV tier) |
+
+Conventional MI is NOT financed into the loan (unlike FHA UFMIP or VA funding fee). It is a monthly cost paid by the borrower that drops off when the LTV reaches 80%. Use the pricer's exact values -- do not recalculate.
 
 ##### FinancedFees Object
 
@@ -473,8 +498,8 @@ Present when `productType` is `'fha'` or `'va'`:
 | Field | Type | Present When | Description |
 |-------|------|-------------|-------------|
 | `ufmip` | number | FHA only | FHA Upfront Mortgage Insurance Premium (1.75% of base loan amount) |
-| `vaFundingFee` | number | VA only (non-exempt) | VA funding fee dollar amount |
-| `fundingFeePercent` | number | VA only (non-exempt) | Funding fee percentage applied (0.5% IRRRL, 3.3% cash-out) |
+| `vaFundingFee` | number | VA only | VA funding fee dollar amount. Returns `0` when exempt. |
+| `fundingFeePercent` | number | VA only | Funding fee percentage applied (0.5% IRRRL, 2.15% first-time, 3.3% subsequent, 0% exempt). Returns `0` when exempt. |
 | `totalFinanced` | number | Always | Total dollar amount financed (added to base loan) |
 | `totalLoanAmount` | number | Always | Base loan amount + totalFinanced |
 | `annualMip` | number | FHA only | Annual MIP amount (0.55% of base loan amount) |
@@ -494,7 +519,8 @@ Each entry in `pricing[]` contains:
 | `apr` | number | Annual Percentage Rate | Display as `X.XXX%` to borrower. Required disclosure per TILA. |
 | `isPar` | boolean (optional) | Whether this is the par rate (closest to 100). Provided by the pricer. | Can be used directly to identify the par rate option |
 | `monthlyMip` | number (FHA only) | Monthly MIP amount | Display as part of total monthly obligation for FHA |
-| `totalMonthlyPayment` | number (FHA only) | P&I + monthly MIP | Use this (not `monthlyPayment`) for FHA savings calculations |
+| `monthlyMI` | number (conventional, LTV > 80% only) | Monthly mortgage insurance premium | Display as part of total monthly obligation for high-LTV conventional |
+| `totalMonthlyPayment` | number (FHA or conventional LTV > 80%) | P&I + monthly insurance (MIP for FHA, MI for conventional) | Use this (not `monthlyPayment`) for savings calculations when present |
 
 **IMPORTANT**: The `basePrice` field is intentionally excluded from the MCP response. It represents internal wholesale pricing and margin data that must NEVER be displayed to, or mentioned to, the borrower. If `basePrice` appears in the response for any reason, ignore it completely — do not reference it, display it, or include it in any output.
 
@@ -509,7 +535,7 @@ For EACH eligible product type in the `MultiPricingResult`, identify and flag th
 
 These flagged options will be presented to the borrower in Phase 3 as the primary comparison points. Identify them for each eligible product independently -- each product has its own rate sheet and pricing array.
 
-> **FHA note**: For FHA loans, when identifying key rate options, use `totalMonthlyPayment` instead of `monthlyPayment` for the "lowest payment option" comparison, since the borrower's actual monthly obligation includes MIP.
+> **Insurance note**: For FHA loans and conventional loans with LTV > 80%, when identifying key rate options, use `totalMonthlyPayment` instead of `monthlyPayment` for the "lowest payment option" comparison, since the borrower's actual monthly obligation includes mortgage insurance.
 
 #### 2.4.4 Data Retention for Phase 3
 
@@ -647,15 +673,17 @@ When multiple products are eligible in the `MultiPricingResult`, present a compa
 |---|---|---|---|
 | Rate (par) | X.XXX% | X.XXX% | X.XXX% |
 | Monthly P&I | $X,XXX | $X,XXX | $X,XXX |
-| Monthly MIP | -- | $XXX | -- |
+| Monthly Insurance | $XXX (MI) or -- | $XXX (MIP) | -- |
 | Total Payment | $X,XXX | $X,XXX | $X,XXX |
 | Funding/UFMIP Fee | -- | $X,XXX | $X,XXX |
 | APR | X.XXX% | X.XXX% | X.XXX% |
 
+For the conventional column: show Monthly Insurance as "$XXX (MI)" if LTV > 80%, or "--" if LTV <= 80%.
+
 For ineligible products, show the column with "Not eligible: [reason]" spanning the rows.
 
 Explain the key trade-offs between eligible products:
-- **Conventional**: No mortgage insurance if LTV is 80% or below. Higher rates for lower credit scores. No upfront fees financed into the loan.
+- **Conventional**: No mortgage insurance if LTV is 80% or below. If LTV > 80%, borrower-paid mortgage insurance (BPMI) applies as a monthly cost — but it drops off once equity reaches 20%. No upfront fees financed into the loan.
 - **FHA**: Lower rates for borrowers with lower credit scores, but includes permanent monthly MIP (0.55% annual). 1.75% Upfront MIP (UFMIP) is financed into the loan balance.
 - **VA**: No monthly mortgage insurance at any LTV. Funding fee is financed into the loan unless the borrower is exempt (10%+ disability rating). Available only to eligible veterans, active-duty service members, and surviving spouses.
 
@@ -678,18 +706,22 @@ For each rate option in the `PricingResult.pricing[]` array, calculate the month
 **Product-type-aware savings formula:**
 
 ```
-# Conventional and VA:
+# VA and conventional with LTV <= 80%:
 monthlySavings = currentMonthlyPI - newMonthlyPayment
 
 # FHA:
 monthlySavings = (currentMonthlyPI + currentMonthlyMIP) - totalMonthlyPayment
+
+# Conventional with LTV > 80% (MI applies):
+monthlySavings = (currentMonthlyPI + currentMonthlyPMI) - totalMonthlyPayment
 ```
 
 Where:
 - `currentMonthlyPI` is the borrower's current principal and interest payment (P&I -- the portion of your monthly payment that goes toward the loan itself, not including taxes or insurance) as extracted from their mortgage statement or provided during the Phase 1 interview.
 - `newMonthlyPayment` is the `monthlyPayment` field from the `RatePricing` object (P&I only).
-- `totalMonthlyPayment` is from the `RatePricing` object (P&I + monthly MIP, FHA only).
+- `totalMonthlyPayment` is from the `RatePricing` object (P&I + monthly MIP for FHA, or P&I + monthly MI for conventional with LTV > 80%).
 - `currentMonthlyMIP` is the borrower's current monthly MIP from Phase 1 statement extraction (FHA only). For FHA-to-FHA refinances, the current obligation includes MIP, so it must be included for an accurate apples-to-apples savings comparison.
+- `currentMonthlyPMI` is the borrower's current monthly PMI from Phase 1 statement extraction (conventional with existing MI only). If the borrower currently pays PMI, include it for an apples-to-apples comparison. If unknown, use `currentMonthlyPI` only and note the comparison may be approximate.
 
 **Presentation rules:**
 - Present savings as a dollar amount formatted as `$XXX.XX per month`.
@@ -701,6 +733,8 @@ Where:
 **FHA presentation rule**: For FHA loans, always present the monthly payment as: "P&I: $X,XXX.XX + MIP: $XXX.XX/mo = Total: $X,XXX.XX/mo"
 
 When the current mortgage is also FHA, present the current payment the same way: "Current: P&I: $X,XXX.XX + MIP: $XXX.XX/mo = Total: $X,XXX.XX/mo" so the borrower sees an apples-to-apples comparison.
+
+**Conventional MI presentation rule**: For conventional loans with LTV > 80%, present the monthly payment as: "P&I: $X,XXX.XX + MI: $XXX.XX/mo = Total: $X,XXX.XX/mo". Also note: "Mortgage insurance is required because your loan-to-value ratio is above 80%. MI drops off once your LTV reaches 80% (typically through payments or appreciation)." For conventional loans with LTV <= 80%, present P&I only -- no MI applies.
 
 **VA presentation rule**: For VA loans, present as P&I only (no mortgage insurance component): "Monthly P&I: $X,XXX.XX". VA loans have no monthly mortgage insurance.
 
@@ -806,7 +840,7 @@ Round up to the nearest whole month (a borrower needs to complete the full month
 - If `monthlySavings` is negative (new payment is higher): "Since the new monthly payment is higher than your current payment, there is no breakeven period -- the closing costs are an additional expense on top of higher payments. This typically occurs with shorter-term refinances where the goal is to pay off the loan faster and save on total interest."
 - If `monthlySavings` is very small (less than `min_monthly_savings_threshold` from `mortgage.local.md`, current value: $50): "The monthly savings of $XX.XX are modest. At this savings rate, it would take [X] months ([X.X] years) to recoup closing costs. You may want to consider whether the savings justify the cost and effort of refinancing."
 
-**FHA note**: For FHA loans, the `monthlySavings` used in the breakeven formula must be based on `totalMonthlyPayment` (P&I + MIP), not just `monthlyPayment`. This ensures the breakeven calculation reflects the borrower's true monthly obligation including mortgage insurance.
+**Insurance note**: For FHA loans and conventional loans with LTV > 80%, the `monthlySavings` used in the breakeven formula must be based on `totalMonthlyPayment` (P&I + insurance), not just `monthlyPayment`. This ensures the breakeven calculation reflects the borrower's true monthly obligation including mortgage insurance.
 
 ### 3.5 Recommendation Score (1-10)
 
@@ -905,11 +939,32 @@ For FHA loans, use this expanded table format that includes MIP:
 > | **Loan Term** | [X] years remaining | [XX] years (new term) |
 > | **Recommendation Score** | -- | [X] / 10 -- [Label from Section 3.5.4] |
 
-For VA loans, use the same table format as conventional (no MIP rows). VA loans have no monthly mortgage insurance.
+**Conventional MI Comparison Table Variant**
+
+For conventional loans with LTV > 80%, use this expanded table format that includes MI:
+
+> | | Current Mortgage | New Estimate (Par Rate) |
+> |---|---|---|
+> | **Interest Rate** | [X.XX]% | [X.XXX]% (APR: [X.XXX]% -- includes MI cost per TILA) |
+> | **Monthly P&I** | $[X,XXX.XX] | $[X,XXX.XX] |
+> | **Monthly MI** | $[XXX.XX] or N/A | $[XXX.XX] ([X.XX]% annual rate, [XX]% coverage) |
+> | **Total Monthly Payment** | $[X,XXX.XX] | $[X,XXX.XX] |
+> | **Monthly Savings** | -- | $[XXX.XX] per month ([X.X]% reduction) |
+> | **Estimated Closing Costs** | -- | $[XX,XXX] (approximately [X.X]% of loan amount) |
+> | **Breakeven Period** | -- | [X] months (about [X.X] years) |
+> | **Total Interest Savings** | -- | $[XX,XXX] over the life of the loan |
+> | **Loan Term** | [X] years remaining | [XX] years (new term) |
+> | **Recommendation Score** | -- | [X] / 10 -- [Label from Section 3.5.4] |
+
+Note below the table: "Mortgage insurance is required because your loan-to-value ratio is above 80%. MI will drop off once your equity reaches 20% (LTV drops to 80%), either through principal payments or home value appreciation."
+
+For conventional loans with LTV <= 80%, use the standard table format (no MI rows).
+
+For VA loans, use the same table format as conventional LTV <= 80% (no insurance rows). VA loans have no monthly mortgage insurance.
 
 #### 3.6.1.1 Financed Fees Summary
 
-For FHA and VA loans only (do NOT show for conventional), add this section below the comparison table:
+For FHA and VA loans only (conventional MI is NOT financed -- do not show in this section), add this section below the comparison table:
 
 > **Financed Fees** (added to loan balance, not paid at closing):
 > - [FHA: "UFMIP: $X,XXX (1.75% of loan amount)" | VA non-exempt: "Funding Fee: $X,XXX (X.X%)" | VA exempt: "Funding Fee: Exempt"]
