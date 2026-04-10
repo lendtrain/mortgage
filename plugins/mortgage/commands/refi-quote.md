@@ -740,21 +740,36 @@ When the current mortgage is also FHA, present the current payment the same way:
 
 ### 3.2 Estimated Closing Costs
 
-Calculate estimated closing costs using the `closing-costs` skill for an itemized, state-specific, product-specific breakdown. Pass the borrower's state, loan amount, property value, product type (conventional/FHA Streamline/VA IRRRL/VA Cash-Out), and any applicable details to the skill.
+**Call the `~~pricer calculate_closing_cost` MCP tool.** This is the ONLY acceptable source of closing cost figures in a refinance quote. Do NOT estimate closing costs as a percentage of the loan amount. Do NOT use a "typical" or "approximate" heuristic. Do NOT reference `closing_cost_estimate_percent` — that config value no longer exists.
 
-If the `closing-costs` skill is unavailable or the state is not covered, fall back to `closing_cost_estimate_percent` from `mortgage.local.md` (current value: 1.2%):
+**Tool call**:
 
 ```
-estimatedClosingCosts = loanAmount * (closing_cost_estimate_percent / 100)
+~~pricer calculate_closing_cost
+  state: <borrower's property state>
+  loanAmount: <base loan amount — same value sent to the pricer's calculate_all_pricing call in Phase 2>
+  productType: <"conventional" | "fha" | "va">
+  isStreamline: <true for FHA Streamline or VA IRRRL, false otherwise>
+  discountPointsDollar: <dollar cost of discount points on the selected rate option, or 0 if no points>
+  monthsSinceEndorsement: <FHA streamline only — full months since the existing loan's endorsement date>
+  previousUfmipAmount: <FHA streamline only — UFMIP paid on the existing FHA loan, typically 1.75% of the original loan amount>
 ```
 
-Where `loanAmount` is the loan amount used in the `LoanScenario` sent to the pricer in Phase 2.
+Use the returned `ClosingCostBreakdown` from the tool:
+- `response.total` → the single out-of-pocket closing cost figure for the borrower quote (use this verbatim)
+- `response.lenderFees`, `response.thirdPartyFees`, `response.titleSettlement`, `response.governmentRecording` → the itemized breakdown for the `closing-costs` skill presentation
+- `response.productSpecific.fhaUpfrontMip` or `response.productSpecific.vaFundingFee` → financed fees, shown separately (never included in the out-of-pocket `total`)
+
+Defer to the `closing-costs` skill for presentation formatting (itemized table layout, disclosures) — but ALL DOLLAR AMOUNTS come from the `calculate_closing_cost` tool response, not from the per-state reference tables in the skill.
+
+**If the tool returns an "Unsupported state" error** (anything other than AL/FL/GA/KY/NC/OR/SC/TN/TX/UT): STOP. Do NOT invent a figure. Do NOT fall back to a percentage. Defer to the `mortgage-compliance` skill and use the unlicensed-state copy block (Section 1.3 of this command). Lendtrain is not licensed in unsupported states, so a quote is not appropriate anyway.
 
 **Presentation rules:**
-- Present the estimated closing costs as a single dollar figure formatted as `$XX,XXX`.
-- Do NOT quote a 2-3% range for closing costs. The 2-3% figure applies to purchase loans, not refinances. Refinance closing costs are typically around 1.2% of the loan amount because there is no transfer tax, title insurance is less expensive (reissue rate), and many purchase-related fees do not apply. ALWAYS use the `closing_cost_estimate_percent` from `mortgage.local.md` (currently 1.2%) for the estimate. Present it as: "Estimated closing costs for your refinance are approximately $XX,XXX, based on roughly 1.2% of your loan amount. This excludes any discount points to buy the rate down, which are shown separately above."
-- Always include the disclaimer: "Closing costs are estimates based on a typical percentage of your loan amount. Actual costs will be itemized on your official Loan Estimate (the formal document you receive after submitting a full application) and may differ."
-- If the lender credit option from Phase 2 (Section 2.4.3) offsets some or all closing costs, note this: "One of the rate options includes a lender credit of $X,XXX.XX that could offset some or all of these closing costs, in exchange for a slightly higher rate."
+- Present the estimated closing costs as a single dollar figure formatted as `$XX,XXX` using `response.total`.
+- Present as: "Estimated closing costs for your refinance are approximately $XX,XXX. See the itemized breakdown below."
+- Always include the disclaimer: "Closing costs shown are itemized estimates from our pricing engine. Certain fees (title insurance, recording, transfer taxes) are state-specific. You will receive an official Loan Estimate after submitting a full application, and actual costs may differ within regulatory tolerance limits."
+- If the lender credit option from Phase 2 (Section 2.4.3) offsets some or all of `response.total`, note this: "One of the rate options includes a lender credit of $X,XXX.XX that could offset some or all of these closing costs, in exchange for a slightly higher rate."
+- **NEVER** present closing costs as "approximately 1.2% of your loan amount" or any similar heuristic — that framing is inaccurate (it overstates real closing costs by 2-3x on high-balance loans) and must not appear in any borrower-facing output.
 
 #### Financed Fees Presentation (FHA and VA Only)
 

@@ -1,5 +1,4 @@
 ---
-closing_cost_estimate_percent: 1.2  # Fallback only — the closing-costs skill provides itemized estimates
 min_recommendation_score: 6
 min_monthly_savings_threshold: 50
 max_breakeven_months: 48
@@ -12,11 +11,9 @@ This file contains organization-specific configuration values referenced by the 
 
 ## Configuration Reference
 
-### `closing_cost_estimate_percent`
+### Closing cost figures
 
-Estimated closing costs as a percentage of the loan amount, used for breakeven calculations. When a borrower receives a refinance quote, this percentage is applied to the new loan amount to estimate total closing costs. The breakeven period is then calculated as total closing costs divided by monthly savings.
-
-**Current value**: 1.2 (i.e., 1.2% of the loan amount)
+Closing costs are NOT configured here. They come exclusively from the `~~pricer calculate_closing_cost` MCP tool, which returns deterministic per-state, per-product numbers from the mortgage-pricer service. Never estimate closing costs as a percentage of the loan amount — even as a fallback. If the pricer tool is unavailable or the state is unsupported, the skill must say so explicitly rather than invent a figure. See the `mortgage-loan-officer` SKILL.md, "Estimated Closing Costs" section.
 
 ### `min_recommendation_score`
 
