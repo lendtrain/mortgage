@@ -260,20 +260,44 @@ For VA loans, use `monthlyPayment` (P&I only). VA loans have no monthly mortgage
 
 ### Estimated Closing Costs
 
-Defer to the `closing-costs` skill for itemized closing cost estimates. The `closing-costs` skill provides state-specific, product-specific fee breakdowns based on the borrower's property state, loan amount, and product type (Conventional, FHA, FHA Streamline, VA IRRRL, VA Cash-Out).
+**You MUST call the `~~pricer calculate_closing_cost` MCP tool to get closing costs. NEVER estimate closing costs as a percentage of the loan amount. NEVER use a rule-of-thumb figure. The pricer returns deterministic per-state, per-product numbers that are the ONLY acceptable source of truth for any closing cost figure presented to a borrower.**
+
+The `calculate_closing_cost` tool returns a `ClosingCostBreakdown` with:
+- `total` — the sum the borrower would pay at closing (use this verbatim)
+- `lenderFees` — underwriting ($1,290) + discount points (if any)
+- `thirdPartyFees` — credit report, appraisal, flood cert, tax service
+- `titleSettlement` — settlement fee, title insurance, CPL (state-specific)
+- `governmentRecording` — recording fees, state transfer/mortgage taxes (state-specific)
+- `productSpecific` — FHA UFMIP or VA funding fee (financed, NOT in `total`)
+
+**Tool call format**:
+
+```
+~~pricer calculate_closing_cost
+  state: <2-letter code, e.g. "UT">
+  loanAmount: <base loan amount in dollars>
+  productType: <"conventional" | "fha" | "va">
+  isStreamline: <true for FHA Streamline or VA IRRRL, otherwise false>
+  discountPointsDollar: <dollar cost of points from the selected rate option, or 0>
+  monthsSinceEndorsement: <FHA streamline only — full months since original endorsement date>
+  previousUfmipAmount: <FHA streamline only — the UFMIP paid on the existing FHA loan>
+```
 
 When presenting closing costs:
-1. Use the `closing-costs` skill to calculate the itemized fee breakdown.
-2. Present the itemized table to the borrower as part of the quote.
-3. Use the total from the itemized breakdown for breakeven calculations.
-4. If the `closing-costs` skill is unavailable or the state is not covered, fall back to `closing_cost_estimate_percent` from `mortgage.local.md` (default: 1.2%) as a rough estimate, and disclose that the estimate is approximate.
+1. Call `calculate_closing_cost` with the scenario's state, loan amount, product type, and (for streamline) the UFMIP refund inputs.
+2. Use `response.total` verbatim as the total closing cost figure — do NOT round, scale, or adjust it.
+3. Present the itemized breakdown to the borrower: lender fees, third-party fees, title & settlement, government & recording, and any financed fees (FHA UFMIP or VA funding fee) shown as a SEPARATE line item outside the out-of-pocket total.
+4. Use `response.total` as `estimatedClosingCosts` in the breakeven formula in Section 4 ("Breakeven Period").
+5. If the state is NOT in the supported list (AL, FL, GA, KY, NC, OR, SC, TN, TX, UT), the tool returns an error with an "Unsupported state" message. In that case, do NOT invent a figure. Defer to the `mortgage-compliance` skill: Lendtrain is not currently licensed in unsupported states. See `refi-quote.md` for the licensed-state copy block.
+
+Defer to the `closing-costs` skill only for PRESENTATION guidance (itemized table format, disclosures, and FHA Streamline / VA IRRRL narrative). All DOLLAR AMOUNTS come from the `calculate_closing_cost` MCP tool.
 
 ### FHA Streamline Pricing Strategy
 
 FHA Streamline closing costs CANNOT be financed into the new loan. Most FHA Streamline borrowers prefer to bring $0 or minimal cash to closing. To achieve this:
 
-1. **Calculate estimated closing costs** using the `closing-costs` skill (with FHA Streamline product type -- no appraisal, UFMIP refund netting applied).
-2. **Price with lender credit**: Request rate options that generate enough lender credit to cover the estimated closing costs. This typically means pricing at a slightly above-market rate.
+1. **Calculate closing costs** by calling `~~pricer calculate_closing_cost` with `productType: 'fha'`, `isStreamline: true`, and the FHA-specific refund inputs (`monthsSinceEndorsement`, `previousUfmipAmount`). The tool automatically waives the appraisal ($550) in Section B, applies the UFMIP refund netting formula, and returns the exact `total`.
+2. **Price with lender credit**: Request rate options that generate enough lender credit to cover `response.total`. This typically means pricing at a slightly above-market rate.
 3. **Present options**: Show the borrower at least two scenarios:
    - **$0 out of pocket**: Rate with lender credit covering all closing costs (slightly higher rate)
    - **Lower rate**: Market rate or below with closing costs paid out of pocket
@@ -306,6 +330,8 @@ The breakeven period tells the borrower how long it takes for the monthly saving
 ```
 breakevenMonths = estimatedClosingCosts / monthlySavings
 ```
+
+Where `estimatedClosingCosts` is the `total` field returned by the `~~pricer calculate_closing_cost` MCP tool (see "Estimated Closing Costs" section above). **Do NOT compute `estimatedClosingCosts` as a percentage of the loan amount.** A heuristic like "1.2% of loan" will skew breakeven by 2-3x on high-balance loans and can flip the recommendation score entirely, since breakeven is 25-30% of the weighted recommendation score.
 
 Present this clearly: "It would take approximately 18 months of savings to recoup the estimated closing costs. If you plan to stay in your home longer than that, refinancing could benefit you financially."
 

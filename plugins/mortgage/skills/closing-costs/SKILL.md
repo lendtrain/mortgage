@@ -1,6 +1,8 @@
 # Closing Costs
 
-This skill provides itemized estimated closing costs for refinance transactions. Use it to calculate and present state-specific, product-specific fee breakdowns based on the borrower's property state, loan amount, and product type (Conventional, FHA, VA).
+This skill is a **presentation guide** for showing itemized refinance closing costs to borrowers. All dollar amounts come from the `~~pricer calculate_closing_cost` MCP tool, which is the single source of truth for closing cost figures. This skill tells you how to format and present those numbers, how to explain them to the borrower, and which compliance disclosures to attach.
+
+**DO NOT compute closing costs in this skill. DO NOT use rule-of-thumb percentages (e.g. "1.2% of the loan amount"). DO NOT sum the per-state reference tables below manually.** Call the pricer tool and present its response verbatim.
 
 **Scope**: Refinance transactions only. Purchase transactions are not supported in this phase.
 
@@ -8,15 +10,74 @@ This skill provides itemized estimated closing costs for refinance transactions.
 
 **Products**: Conventional, FHA, FHA Streamline, VA IRRRL, VA Cash-Out.
 
-**Integration**: This skill is referenced by the `mortgage-loan-officer` skill when presenting closing cost estimates as part of a refinance quote.
+**Integration**: This skill is referenced by the `mortgage-loan-officer` skill when presenting closing cost estimates as part of a refinance quote. The `mortgage-loan-officer` skill calls `~~pricer calculate_closing_cost` and passes the result to this skill for presentation.
 
-**Required inputs from the conversation**:
+---
+
+## Data Source: `~~pricer calculate_closing_cost` MCP Tool
+
+Every closing cost number in the borrower-facing quote MUST come from the `calculate_closing_cost` MCP tool on the `~~pricer` connector. The tool wraps the deterministic `ClosingCostCalculator` in the mortgage-pricer service and returns a `ClosingCostBreakdown` with per-category subtotals and a `total` field.
+
+**Tool call**:
+
+```
+~~pricer calculate_closing_cost
+  state: <2-letter code>
+  loanAmount: <base loan amount in dollars>
+  productType: <"conventional" | "fha" | "va">
+  isStreamline: <true for FHA Streamline or VA IRRRL, false otherwise>
+  discountPointsDollar: <dollar cost of discount points on the selected rate, or 0>
+  monthsSinceEndorsement: <FHA streamline only — full months since the existing loan's endorsement date>
+  previousUfmipAmount: <FHA streamline only — UFMIP paid on the existing FHA loan>
+```
+
+**Tool response shape** (fields you will map into the itemized table):
+
+```json
+{
+  "total": 4170.50,
+  "lenderFees": {
+    "underwriting": 1290,
+    "discountPoints": 0
+  },
+  "thirdPartyFees": {
+    "creditReport": 150,
+    "appraisal": 550,
+    "floodCert": 8,
+    "taxService": 85,
+    "subtotal": 793
+  },
+  "titleSettlement": {
+    "settlementFee": 350,
+    "titleInsurance": 1697.50,
+    "cpl": 0,
+    "subtotal": 2047.50
+  },
+  "governmentRecording": {
+    "recordingFees": 40,
+    "stateTaxes": 0,
+    "taxDescription": "No mortgage tax",
+    "subtotal": 40
+  },
+  "productSpecific": {
+    "fhaUpfrontMip": 5250,            // FHA only
+    "vaFundingFee": 1500,             // VA only
+    "fhaStreamlineUfmipRefund": 2900  // FHA streamline only, when applicable
+  }
+}
+```
+
+Map each field directly into the itemized presentation table described below. Use the field values VERBATIM — do not round further, recompute, or "sanity check" them.
+
+**Unsupported states**: If the property is in a state not covered by the calculator (anything other than AL/FL/GA/KY/NC/OR/SC/TN/TX/UT), the tool returns an error. In that case, do NOT invent a figure, do NOT fall back to a percentage heuristic, and do NOT use the per-state reference tables below. Defer to the `mortgage-compliance` skill: Lendtrain is not currently licensed in that state. See `refi-quote.md` for the standard unlicensed-state reply.
+
+**Required inputs from the conversation** (to build the tool call):
 1. Property state
 2. Loan amount
 3. Product type (Conventional, FHA, or VA)
-4. For VA loans only: the `vaFundingFeeType` (`'firstTime'`, `'subsequent'`, or `'exempt'`)
-5. For FHA Streamline: borrower's mortgage statement (for UPB, current rate, origination date, monthly MIP)
-6. For VA IRRRL: borrower's mortgage statement (for UPB, current rate, origination date/first payment date)
+4. For VA loans only: the `vaFundingFeeType` (`'firstTime'`, `'subsequent'`, or `'exempt'`) — used by the `mortgage-loan-officer` skill and passed into the pricer's main pricing call; the closing-cost tool infers the funding fee from `productType` + `isStreamline`
+5. For FHA Streamline: borrower's mortgage statement (for UPB, current rate, origination date, monthly MIP) — the origination date yields `monthsSinceEndorsement`, and the current monthly MIP helps estimate the original UFMIP (`previousUfmipAmount`)
+6. For VA IRRRL: borrower's mortgage statement (for UPB, current rate, origination date/first payment date) — required for seasoning, not for the closing cost calc itself
 
 ---
 
@@ -156,7 +217,13 @@ Unlike FHA Streamline refinances, closing costs on VA IRRRL refinances CAN be fi
 
 ---
 
-## State Fee Schedules
+## State Fee Schedules (Historical Reference Only — NOT Authoritative)
+
+**IMPORTANT:** The per-state fee schedules below are historical reference material maintained for human review. **They are NOT the source of truth for dollar amounts in borrower quotes.** The authoritative numbers live in the mortgage-pricer service's `ClosingCostCalculator` and are returned by the `~~pricer calculate_closing_cost` MCP tool.
+
+The pricer's per-state formulas may differ from these reference tables (different settlement fees, CPL amounts, title insurance bracket formulas, or refi discounts), and the pricer numbers are the ones that match the production quoting flow. **Always call the tool — do not sum these tables manually.**
+
+If a figure from the tool surprises you, that is a signal to investigate in the pricer repo (`server/src/services/closingCostCalculator.ts`), not a reason to override the tool with the numbers below.
 
 Each state schedule below contains:
 - **Section C**: Settlement/closing fee, Closing Protection Letter (CPL), lender's title insurance
@@ -493,38 +560,50 @@ For loan amounts $100,000 and under: $832 * 0.938 = $780.42 (use $780)
 
 ---
 
-## Calculation Procedure
+## Presentation Procedure
 
-Follow these steps in order when calculating closing costs:
+Follow these steps in order when presenting closing costs. **All dollar amounts come from the `~~pricer calculate_closing_cost` MCP tool response — never from the per-state reference tables above, never from a percentage of the loan amount.**
 
-1. **Validate property state.** Confirm the borrower's property state is in the licensed states list (GA, AL, FL, KY, NC, OR, SC, TN, TX, UT). If not, stop and defer to the `mortgage-compliance` skill. Do not estimate fees for unlicensed states.
+1. **Validate property state.** Confirm the borrower's property state is in the licensed states list (GA, AL, FL, KY, NC, OR, SC, TN, TX, UT). If not, stop and defer to the `mortgage-compliance` skill. Do not estimate fees for unlicensed states — not even as a rough figure.
 
 2. **Determine product type.** Identify whether the loan is Conventional, FHA, FHA Streamline, VA IRRRL, or VA Cash-Out. If the borrower has an existing FHA loan and wants a rate/term refinance, the product is FHA Streamline. If the borrower has an existing VA loan and wants a rate/term refinance, the product is VA IRRRL.
 
 3. **If VA, confirm funding fee type.** Read `vaFundingFeeType` from the scenario context (set during Phase 1 data collection). If not already set, ask the borrower about first-time vs. subsequent use and disability exemption (see mortgage-loan-officer skill, Section 3).
 
-4. **Look up the state fee schedule.** Locate the correct state section above for the borrower's property state.
+4. **Call `~~pricer calculate_closing_cost`** with the scenario data:
 
-5. **Calculate Section A fees.** Underwriting fee ($1,290) plus any discount points from the selected rate. If the rate has no points, discount points = $0.
+   ```
+   ~~pricer calculate_closing_cost
+     state: <borrower's property state>
+     loanAmount: <base loan amount — for FHA Streamline this is the new base mortgage after UFMIP refund netting, per the HUD 4000.1 worksheet>
+     productType: <"conventional" | "fha" | "va">
+     isStreamline: <true for FHA Streamline or VA IRRRL>
+     discountPointsDollar: <dollar cost of discount points on the selected rate, or 0>
+     monthsSinceEndorsement: <FHA streamline only>
+     previousUfmipAmount: <FHA streamline only>
+   ```
 
-6. **Calculate Section B fees.** For Conventional, FHA, and VA Cash-Out: fixed total $793 ($150 credit report + $550 appraisal + $8 flood certification + $85 tax service fee). For FHA Streamline and VA IRRRL: fixed total $243 ($150 credit report + $8 flood certification + $85 tax service fee) -- no appraisal required.
+5. **Map the response into the itemized table.** Use field values VERBATIM — do not recompute, do not round, do not cross-check against the per-state reference tables below (those are historical reference only and may differ from the pricer's canonical numbers).
 
-7. **Calculate Section C fees.** Use the state's settlement fee, CPL, and lender's title insurance formula with the borrower's loan amount. Apply the bracket/formula calculations exactly as specified. Do not apply reissue/refinance discounts unless the borrower confirms a prior title policy exists.
+   - **Section A — Lender Fees**: `lenderFees.underwriting` + `lenderFees.discountPoints`
+   - **Section B — Third-Party Fees**: `thirdPartyFees.creditReport`, `thirdPartyFees.appraisal`, `thirdPartyFees.floodCert`, `thirdPartyFees.taxService`, subtotal = `thirdPartyFees.subtotal`
+   - **Section C — Title and Settlement Fees**: `titleSettlement.settlementFee`, `titleSettlement.titleInsurance`, `titleSettlement.cpl`, subtotal = `titleSettlement.subtotal`
+   - **Section E — Recording and Taxes**: `governmentRecording.recordingFees`, `governmentRecording.stateTaxes` (with label = `governmentRecording.taxDescription`), subtotal = `governmentRecording.subtotal`
 
-8. **Calculate Section E fees.** Use the state's recording fees and any applicable state taxes with the borrower's loan amount. Apply tax formulas exactly as specified.
+6. **Grand total** = `response.total`. This is the out-of-pocket closing cost figure. **Do not re-sum the sections yourself.** If you want to sanity-check, verify that `lenderFees.underwriting + lenderFees.discountPoints + thirdPartyFees.subtotal + titleSettlement.subtotal + governmentRecording.subtotal == total`, but always present `total` verbatim.
 
-9. **Calculate product-specific fees if applicable.**
-   - **Conventional**: No additional fees.
-   - **FHA (standard)**: 1.75% of loan amount (UFMIP, financed). Use `financedFees.ufmip` from the pricer response (1.75% of loan amount, financed).
-   - **FHA Streamline**: Calculate UFMIP with refund netting (see "FHA Streamline -- UFMIP with Refund Netting" section above). Calculate max loan amount per the HUD 4000.1 worksheet formula. Use `financedFees.ufmip` from the pricer response. Calculate UFMIP refund netting per the existing formula. The pricer's `financedFees.totalLoanAmount` reflects the total after financed fees.
-   - **VA IRRRL** (non-exempt): 0.5% of loan amount (financed). Closing costs may be financed into the loan. Use `financedFees.vaFundingFee` from the pricer response.
-   - **VA Cash-Out** (firstTime): 2.15% of loan amount (financed). Use `financedFees.vaFundingFee` from the pricer response.
-   - **VA Cash-Out** (subsequent): 3.3% of loan amount (financed). Use `financedFees.vaFundingFee` from the pricer response.
-   - **VA exempt** (`vaFundingFeeType: 'exempt'`): $0 funding fee regardless of refinance type. The pricer returns `vaFundingFee: 0` and `totalFinanced: 0`.
+7. **Product-specific financed fees** come from `response.productSpecific` and are presented as SEPARATE line items outside the grand total:
+   - **Conventional**: `productSpecific` is `undefined` — no financed fees.
+   - **FHA (standard)**: `productSpecific.fhaUpfrontMip` = 1.75% of the base loan amount. Present as "FHA Upfront MIP: $X (typically financed into the loan — not paid out of pocket)".
+   - **FHA Streamline**: `productSpecific.fhaUpfrontMip` is the new UFMIP and `productSpecific.fhaStreamlineUfmipRefund` is the refund credit from the existing UFMIP (when applicable). Present as: "FHA Upfront MIP: $X (new UFMIP) minus $Y (refund credit from existing UFMIP) = $Z net UFMIP (financed into the loan)". Note the FHA Streamline max loan amount per the HUD 4000.1 worksheet (see above) is computed upstream in the `mortgage-loan-officer` skill when building the scenario.
+   - **VA IRRRL**: `productSpecific.vaFundingFee` = 0.5% of the loan amount unless exempt. Present as "VA Funding Fee: $X (typically financed into the loan — not paid out of pocket)". Note that VA IRRRL closing costs CAN also be financed into the new loan amount (presentation only; the pricer `total` still reflects out-of-pocket).
+   - **VA Cash-Out**: `productSpecific.vaFundingFee` = 2.15% (firstTime) or 3.3% (subsequent). Present the same way.
+   - **VA exempt**: The pricer returns `vaFundingFee: 0` — present "VA Funding Fee: $0 (exempt due to service-connected disability)".
 
-10. **Sum all sections for total estimated closing costs.** Add Section A + Section B + Section C + Section E subtotals. For FHA Streamline: this is the amount that must be covered by lender credit or paid out of pocket (cannot be financed). For VA IRRRL: this amount can be financed into the new loan if the borrower prefers. Do not include financed fees (UFMIP, VA Funding Fee) in the out-of-pocket total.
-
-11. **Separately note financed fees.** If FHA or VA, present the financed fee amount below the total with the note that it is typically financed into the loan and not paid out of pocket.
+8. **Grand total handling by product**:
+   - **FHA Streamline**: The `total` is the amount that must be covered by lender credit or paid out of pocket — it CANNOT be financed into the new loan.
+   - **VA IRRRL**: The `total` can be financed into the new loan amount if the borrower prefers, or paid out of pocket.
+   - All others: `total` is paid at closing.
 
 ---
 
@@ -565,6 +644,8 @@ Include all of the following after the itemized table:
 
 ### Rules
 
+- **All dollar amounts in a borrower quote MUST come from the `~~pricer calculate_closing_cost` MCP tool response.** Do NOT use percentage-of-loan heuristics (e.g. "~1.2% of loan amount"). Do NOT sum the per-state reference tables above manually. Do NOT round or adjust the tool's `total`.
+- If the pricer tool returns an error or the borrower's state is not supported (anything other than AL/FL/GA/KY/NC/OR/SC/TN/TX/UT), STOP. Do not invent a closing cost figure. Defer to the `mortgage-compliance` skill and the unlicensed-state copy in `refi-quote.md`.
 - Defer all regulatory questions to the `mortgage-compliance` skill.
 - Do NOT include escrows (homeowners insurance, property taxes) or prepaid interest in the closing cost total. These are not costs of the refinance.
 - Do NOT combine or simplify the itemized breakdown. Always present the full line-item detail.
