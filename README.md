@@ -34,11 +34,11 @@ Upload your mortgage statement or answer a few questions, and the plugin:
 - **Calculates itemized closing costs** specific to your state
 - **Runs a savings analysis** with monthly payment comparison, breakeven timeline, and total interest savings
 - **Scores your refinance** from 1-10 with a weighted recommendation based on savings, breakeven, rate improvement, and goal alignment
-- **Connects you to apply** if the numbers make sense — or honestly tells you if they don't
+- **Connects you to apply** if the numbers make sense — or tells you if they don't
 
 ## Licensed States
 
-Alabama, Florida, Georgia, Kentucky, North Carolina, Oregon, South Carolina, Tennessee, Texas, Utah
+Alabama, Florida, Georgia, North Carolina, South Carolina, Texas, Utah
 
 ## How It Works
 
@@ -48,7 +48,7 @@ The plugin bundles domain expertise as Claude Code skills:
 |-------|-------------|
 | `mortgage-loan-officer` | Interview methodology, credit score tiers, DTI thresholds, field mappings |
 | `mortgage-compliance` | TRID, RESPA, TILA, ECOA rules and required disclosures |
-| `closing-costs` | Itemized state-specific fee schedules for all 10 licensed states |
+| `closing-costs` | Itemized state-specific fee schedules for all 7 licensed states |
 | `security-guardrails` | Prompt injection defense and data collection boundaries |
 | `about-atlantic-home-mortgage` | Organization context, licensing, and contact information |
 
@@ -100,6 +100,7 @@ This plugin is designed for TRID, RESPA, TILA, and ECOA compliance:
 - **Website:** [lendtrain.com](https://www.lendtrain.com)
 - **Application portal:** [Apply here](https://atlantichm.my1003app.com/register)
 - **NMLS#:** 1844873
+- **Address:** 410 Peachtree Parkway, Building 400, Suite 4245, Cumming, Georgia 30041
 
 ## License
 

@@ -288,7 +288,7 @@ When presenting closing costs:
 2. Use `response.total` verbatim as the total closing cost figure — do NOT round, scale, or adjust it.
 3. Present the itemized breakdown to the borrower: lender fees, third-party fees, title & settlement, government & recording, and any financed fees (FHA UFMIP or VA funding fee) shown as a SEPARATE line item outside the out-of-pocket total.
 4. Use `response.total` as `estimatedClosingCosts` in the breakeven formula in Section 4 ("Breakeven Period").
-5. If the state is NOT in the supported list (AL, FL, GA, KY, NC, OR, SC, TN, TX, UT), the tool returns an error with an "Unsupported state" message. In that case, do NOT invent a figure. Defer to the `mortgage-compliance` skill: Lendtrain is not currently licensed in unsupported states. See `refi-quote.md` for the licensed-state copy block.
+5. If the state is NOT in the supported list (AL, FL, GA, NC, SC, TX, UT), the tool returns an error with an "Unsupported state" message. In that case, do NOT invent a figure. Defer to the `mortgage-compliance` skill: Lendtrain is not currently licensed in unsupported states. See `refi-quote.md` for the licensed-state copy block.
 
 Defer to the `closing-costs` skill only for PRESENTATION guidance (itemized table format, disclosures, and FHA Streamline / VA IRRRL narrative). All DOLLAR AMOUNTS come from the `calculate_closing_cost` MCP tool.
 

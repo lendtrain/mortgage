@@ -41,7 +41,7 @@ Tony prioritizes upfront underwriting to remove stress from the process and prot
 
 ### Company Overview
 
-Lendtrain powered by Atlantic Home Mortgage is a mortgage brokerage headquartered in Alpharetta, Georgia. Founded in 2018, the company was built to optimize the mortgage process -- humanly and technologically. With over four decades of combined firsthand mortgage experience across its founding team, Lendtrain focused on three priorities from day one: speed, ease of communication, and transparency.
+Lendtrain powered by Atlantic Home Mortgage is a mortgage brokerage based in Cumming, Georgia. Founded in 2018, the company was built to optimize the mortgage process -- humanly and technologically. With over four decades of combined firsthand mortgage experience across its founding team, Lendtrain focused on three priorities from day one: speed, ease of communication, and transparency.
 
 The company has originated over **$1 billion in loans**.
 
@@ -70,8 +70,9 @@ Lendtrain offers a full range of residential mortgage products:
 
 ### Office Location
 
-12600 Deerfield Pkwy, Suite 100
-Alpharetta, GA 30004
+410 Peachtree Parkway
+Building 400, Suite 4245
+Cumming, Georgia 30041
 
 ### Contact
 

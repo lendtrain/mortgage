@@ -6,7 +6,7 @@ This skill is a **presentation guide** for showing itemized refinance closing co
 
 **Scope**: Refinance transactions only. Purchase transactions are not supported in this phase.
 
-**Licensed states**: Georgia (GA), Alabama (AL), Florida (FL), Kentucky (KY), North Carolina (NC), Oregon (OR), South Carolina (SC), Tennessee (TN), Texas (TX), Utah (UT).
+**Licensed states**: Georgia (GA), Alabama (AL), Florida (FL), North Carolina (NC), South Carolina (SC), Texas (TX), Utah (UT).
 
 **Products**: Conventional, FHA, FHA Streamline, VA IRRRL, VA Cash-Out.
 
@@ -69,7 +69,7 @@ Every closing cost number in the borrower-facing quote MUST come from the `calcu
 
 Map each field directly into the itemized presentation table described below. Use the field values VERBATIM — do not round further, recompute, or "sanity check" them.
 
-**Unsupported states**: If the property is in a state not covered by the calculator (anything other than AL/FL/GA/KY/NC/OR/SC/TN/TX/UT), the tool returns an error. In that case, do NOT invent a figure, do NOT fall back to a percentage heuristic, and do NOT use the per-state reference tables below. Defer to the `mortgage-compliance` skill: Lendtrain is not currently licensed in that state. See `refi-quote.md` for the standard unlicensed-state reply.
+**Unsupported states**: If the property is in a state not covered by the calculator (anything other than AL/FL/GA/NC/SC/TX/UT), the tool returns an error. In that case, do NOT invent a figure, do NOT fall back to a percentage heuristic, and do NOT use the per-state reference tables below. Defer to the `mortgage-compliance` skill: Lendtrain is not currently licensed in that state. See `refi-quote.md` for the standard unlicensed-state reply.
 
 **Required inputs from the conversation** (to build the tool call):
 1. Property state
@@ -325,34 +325,6 @@ Any amount exceeding the prior policy amount is charged at the full basic rate.
 
 ---
 
-### Kentucky (KY)
-
-#### Section C -- Title and Settlement Fees
-
-| Fee | Amount |
-|-----|--------|
-| Settlement fee | $450 |
-| CPL | $50 |
-| Lender's title insurance | See formula below |
-
-**KY Lender's Title Insurance -- Filed Rates (Stewart, effective 3/3/2023):**
-
-| Loan Amount Range | Rate |
-|-------------------|------|
-| $0 -- $100,000 | $500 flat |
-| $100,001 -- $300,000 | $500 + $3.85 per $1,000 over $100,000 |
-| $300,001 -- $1,000,000 | $1,270 + $2.00 per $1,000 over $300,000 |
-
-**Reissue/refinance rate**: 70% of standard rate (30% discount). Applies when borrower is refinancing an existing loan.
-
-#### Section E -- Recording and Taxes
-
-| Fee | Amount |
-|-----|--------|
-| Transfer/mortgage tax | $0 (not applicable on refinance) |
-| Recording fees | $100 (estimate; $46 base most counties + per-page charges) |
-
----
 
 ### North Carolina (NC)
 
@@ -386,40 +358,6 @@ Minimum premium: $56. Calculate in brackets -- each tier applies only to the amo
 
 ---
 
-### Oregon (OR)
-
-#### Section C -- Title and Settlement Fees
-
-| Fee | Amount |
-|-----|--------|
-| Settlement/escrow fee | $600 (estimate) |
-| CPL | $35 |
-| Lender's title insurance | See table below |
-
-**OR Lender's Title Insurance -- OTIRO Rates (table-based, effective 9/4/2023):**
-
-| Loan Amount | Standard Premium |
-|-------------|-----------------|
-| $100,000 | $500 |
-| $150,000 | $625 |
-| $200,000 | $750 |
-| $250,000 | $875 |
-| $300,000 | $975 |
-| $400,000 | $1,150 |
-| $500,000 | $1,350 |
-
-For amounts between table values, interpolate linearly. For amounts over $500,000, use approximately $2.50-$3.50 per additional $1,000.
-
-**Substitution rate (refinance discount)**: ~70-75% of standard rate when replacing an existing loan policy on the same property.
-
-#### Section E -- Recording and Taxes
-
-| Fee | Amount |
-|-----|--------|
-| Mortgage/transfer tax | $0 (Oregon has no mortgage recording tax) |
-| Recording -- trust deed | $175 (estimate; $86-$93 first page + $5/additional page, varies by county) |
-
----
 
 ### South Carolina (SC)
 
@@ -454,45 +392,6 @@ Calculate in brackets -- each tier applies only to the amount within that range.
 
 ---
 
-### Tennessee (TN)
-
-#### Section C -- Title and Settlement Fees
-
-| Fee | Amount |
-|-----|--------|
-| Settlement fee | $550 |
-| CPL | $25 |
-| Lender's title insurance | See formula below |
-
-**TN Lender's Title Insurance -- Filed Rates:**
-
-| Loan Amount Range | Rate per $1,000 |
-|-------------------|-----------------|
-| $0 -- $50,000 | $2.50 |
-| $50,001 -- $100,000 | $2.00 |
-| $100,001 -- $500,000 | $1.75 |
-| $500,001+ | $1.50 |
-
-Minimum premium: $25. Calculate in brackets -- each tier applies only to the amount within that range.
-
-**Reissue rate** (by age of prior policy):
-- 3-4 years: 40% of original rate
-- 4-5 years: 50% of original rate
-- 5-10 years: 60% of original rate
-- Over 10 years: 100% (no discount)
-
-#### Section E -- Recording and Taxes
-
-| Fee | Amount |
-|-----|--------|
-| Tennessee indebtedness (mortgage) tax | $1.15 per $1,000 of new loan amount (first $2,000 exempt) |
-| Recording -- deed of trust | $80 (estimate; $12 base + $5/page for ~15 pages + $1 register fee) |
-
-Formula for TN mortgage tax: `(loanAmount - 2000) / 100 * 0.115`
-
-Quick approximation: `loanAmount * 0.00115`
-
----
 
 ### Texas (TX)
 
@@ -564,7 +463,7 @@ For loan amounts $100,000 and under: $832 * 0.938 = $780.42 (use $780)
 
 Follow these steps in order when presenting closing costs. **All dollar amounts come from the `~~pricer calculate_closing_cost` MCP tool response — never from the per-state reference tables above, never from a percentage of the loan amount.**
 
-1. **Validate property state.** Confirm the borrower's property state is in the licensed states list (GA, AL, FL, KY, NC, OR, SC, TN, TX, UT). If not, stop and defer to the `mortgage-compliance` skill. Do not estimate fees for unlicensed states — not even as a rough figure.
+1. **Validate property state.** Confirm the borrower's property state is in the licensed states list (GA, AL, FL, NC, SC, TX, UT). If not, stop and defer to the `mortgage-compliance` skill. Do not estimate fees for unlicensed states — not even as a rough figure.
 
 2. **Determine product type.** Identify whether the loan is Conventional, FHA, FHA Streamline, VA IRRRL, or VA Cash-Out. If the borrower has an existing FHA loan and wants a rate/term refinance, the product is FHA Streamline. If the borrower has an existing VA loan and wants a rate/term refinance, the product is VA IRRRL.
 
@@ -645,7 +544,7 @@ Include all of the following after the itemized table:
 ### Rules
 
 - **All dollar amounts in a borrower quote MUST come from the `~~pricer calculate_closing_cost` MCP tool response.** Do NOT use percentage-of-loan heuristics (e.g. "~1.2% of loan amount"). Do NOT sum the per-state reference tables above manually. Do NOT round or adjust the tool's `total`.
-- If the pricer tool returns an error or the borrower's state is not supported (anything other than AL/FL/GA/KY/NC/OR/SC/TN/TX/UT), STOP. Do not invent a closing cost figure. Defer to the `mortgage-compliance` skill and the unlicensed-state copy in `refi-quote.md`.
+- If the pricer tool returns an error or the borrower's state is not supported (anything other than AL/FL/GA/NC/SC/TX/UT), STOP. Do not invent a closing cost figure. Defer to the `mortgage-compliance` skill and the unlicensed-state copy in `refi-quote.md`.
 - Defer all regulatory questions to the `mortgage-compliance` skill.
 - Do NOT include escrows (homeowners insurance, property taxes) or prepaid interest in the closing cost total. These are not costs of the refinance.
 - Do NOT combine or simplify the itemized breakdown. Always present the full line-item detail.

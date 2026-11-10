@@ -4,7 +4,7 @@ Before this tool call proceeds, validate the request against the following manda
 
 ## 1. State Licensing (CRITICAL — Regulatory)
 
-The licensed states are: AL, FL, GA, KY, NC, OR, SC, TN, TX, UT.
+The licensed states are: AL, FL, GA, NC, SC, TX, UT.
 
 If the `state` field is NOT in this list, BLOCK the tool call and respond:
 
