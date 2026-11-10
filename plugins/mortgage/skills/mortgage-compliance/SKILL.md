@@ -124,15 +124,12 @@ Lendtrain powered by Atlantic Home Mortgage may only operate in states where it 
 | Alabama | Consumer Credit License NO. 22996 |
 | Florida | Florida Mortgage Broker License MBR7354 |
 | Georgia | Georgia Mortgage Lender License/Registration No. 66119 |
-| Kentucky | Kentucky Mortgage Company License No. MC737381 |
 | North Carolina | North Carolina Mortgage Broker License B-222102 |
-| Oregon | Oregon Mortgage Lending License 1844873 |
 | South Carolina | South Carolina-BFI Mortgage Lender / Servicer License MLS No. 1844873 |
-| Tennessee | Tennessee Mortgage License 1844873 |
 | Texas | SML Mortgage Company License |
 | Utah | Utah DRE Mortgage Entity License 13795863 |
 
-**Two-letter state codes**: AL, FL, GA, KY, NC, OR, SC, TN, TX, UT
+**Two-letter state codes**: AL, FL, GA, NC, SC, TX, UT
 
 ### State Validation Requirements
 

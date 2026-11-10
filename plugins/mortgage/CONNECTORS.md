@@ -29,7 +29,7 @@ Connector placeholders follow the `~~name` convention. When the plugin reference
 | `loanAmount` | number | Yes | Loan amount (> 0) |
 | `propertyValue` | number | Yes | Property value (>= loanAmount for rate-term) |
 | `creditScore` | number | Yes | Integer 300-850 |
-| `state` | `'AL' \| 'FL' \| 'GA' \| 'KY' \| 'NC' \| 'OR' \| 'SC' \| 'TN' \| 'TX' \| 'UT'` | Yes | Licensed state |
+| `state` | `'AL' \| 'FL' \| 'GA' \| 'NC' \| 'SC' \| 'TX' \| 'UT'` | Yes | Licensed state |
 | `loanTerm` | `10 \| 15 \| 20 \| 25 \| 30` | Yes | Term in years |
 | `lockPeriod` | `15 \| 30 \| 45 \| 60` | Yes | Lock period in days |
 | `occupancy` | `'primary' \| 'secondHome' \| 'investment'` | Yes | Occupancy type |

@@ -1,6 +1,6 @@
 {
   "name": "mortgage",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Mortgage refinance quoting, analysis, and application submission powered by Lendtrain",
   "author": {
     "name": "Lendtrain"

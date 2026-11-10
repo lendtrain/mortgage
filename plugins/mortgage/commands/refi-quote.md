@@ -283,7 +283,7 @@ Before transitioning to Phase 2 (Pricing), validate that all required fields are
 | loanPurpose | One of: rateTermRefi, cashOutRefi |
 | propertyType | One of: singleFamily, condo, townhouse, multiUnit, manufactured |
 | occupancy | One of: primary, secondHome, investment |
-| state | Two-letter state code; must be in the licensed states listed in the mortgage-compliance skill, Section 5 (AL, FL, GA, KY, NC, OR, SC, TN, TX, UT) |
+| state | Two-letter state code; must be in the licensed states listed in the mortgage-compliance skill, Section 5 (AL, FL, GA, NC, SC, TX, UT) |
 | loanTerm | One of: 30, 25, 20, 15, 10 (years) |
 | lockPeriod | Positive integer; defaults to 30 if not specified |
 | productType | One of: conventional, fha, va. Derived from detected loan type -- not directly asked. |
@@ -347,7 +347,7 @@ Map the collected data from Phase 1 to the `LoanScenario` schema field by field.
 | `loanAmount` | Current balance (Section 1.2.1) + cash-out amount (Section 1.3.3) | For `'rateTermRefi'` (rate-term): use the remaining principal balance as-is. For `'cashOutRefi'`: add the borrower's requested cash-out amount to the remaining principal balance. The result is the new loan amount. |
 | `propertyValue` | Estimated current value (Section 1.3.1) | Use the borrower's estimated property value directly. This is the value they provided during the interview. |
 | `creditScore` | Credit score (Section 1.3.2) | Use the numeric credit score. If the borrower provided a range (e.g., "between 700 and 720"), use the **lower bound** of the range (700 in this example) for conservative pricing. Must be an integer between 300 and 850. |
-| `state` | Property address (Section 1.2.1 or 1.3.1) | Extract the 2-letter state code from the property address. Must be uppercase (e.g., `'VA'`, `'MD'`, `'DC'`). |
+| `state` | Property address (Section 1.2.1 or 1.3.1) | Extract the 2-letter state code from the property address. Must be uppercase (e.g., `'GA'`, `'NC'`, `'TX'`). |
 | `loanTerm` | Preferred loan term (Section 1.3.3) | Use the borrower's preferred term. Accepted values: `30`, `25`, `20`, `15`, or `10`. If the borrower did not express a preference, default to `30`. |
 | `lockPeriod` | `mortgage.local.md` `default_lock_period` | Use the `default_lock_period` value from `mortgage.local.md`. Current default: `30`. Accepted values: `30`, `45`, or `60`. |
 | `occupancy` | Occupancy type (Section 1.3.1) | Map the borrower's answer: primary residence maps to `'primary'`, second home maps to `'secondHome'`, investment property maps to `'investment'`. Use exact enum strings. |
@@ -762,7 +762,7 @@ Use the returned `ClosingCostBreakdown` from the tool:
 
 Defer to the `closing-costs` skill for presentation formatting (itemized table layout, disclosures) — but ALL DOLLAR AMOUNTS come from the `calculate_closing_cost` tool response, not from the per-state reference tables in the skill.
 
-**If the tool returns an "Unsupported state" error** (anything other than AL/FL/GA/KY/NC/OR/SC/TN/TX/UT): STOP. Do NOT invent a figure. Do NOT fall back to a percentage. Defer to the `mortgage-compliance` skill and use the unlicensed-state copy block (Section 1.3 of this command). Lendtrain is not licensed in unsupported states, so a quote is not appropriate anyway.
+**If the tool returns an "Unsupported state" error** (anything other than AL/FL/GA/NC/SC/TX/UT): STOP. Do NOT invent a figure. Do NOT fall back to a percentage. Defer to the `mortgage-compliance` skill and use the unlicensed-state copy block (Section 1.3 of this command). Lendtrain is not licensed in unsupported states, so a quote is not appropriate anyway.
 
 **Presentation rules:**
 - Present the estimated closing costs as a single dollar figure formatted as `$XX,XXX` using `response.total`.
